@@ -2,8 +2,13 @@ services:
   - type: web
     name: streamlit-app
     env: python
-    buildCommand: ""
-    startCommand: streamlit run app.py --server.port $PORT --server.address 0.0.0.0
+    plan: free  # o 'starter'/'professional' según tu plan
+    buildCommand: pip install -r requirements.txt
+    startCommand: streamlit run app.py --server.port=$PORT --server.address=0.0.0.0 --server.headless=true --browser.gatherUsageStats=false
     envVars:
       - key: PYTHON_VERSION
-        value: 3.10
+        value: 3.10.12  # Versión específica recomendada para mayor estabilidad
+      - key: STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION
+        value: "true"  # Seguridad habilitada por defecto
+      - key: STREAMLIT_SERVER_ENABLE_CORS
+        value: "false"
