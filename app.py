@@ -4,20 +4,32 @@ import uuid
 
 PROD_URL = "https://scibot-backend.uc.r.appspot.com"
 
-def upload_pdf(files):
+def upload_pdf(files, model=None):
     file = files[0]
     files_payload = {"pdf": (file.name, file, "application/pdf")}
-    response = requests.post(f"{PROD_URL}/load", files=files_payload)
+    
+    # Construct URL with model parameter
+    url = f"{PROD_URL}/load"
+    if model:
+        url += f"?model={model}"
+    
+    response = requests.post(url, files=files_payload)
     if response.status_code == 200:
         return response.json()  # {"session_id": ..., "summary": ...}
     else:
         st.error(f"Upload error: {response.text}")
         return None
 
-def ask_question(session_id, question):
+def ask_question(session_id, question, model=None):
     headers = {"Content-Type": "application/json"}
     json_data = {"message": question}
-    response = requests.post(f"{PROD_URL}/chat?session_id={session_id}", headers=headers, json=json_data)
+    
+    # Construct URL with session_id and model parameters
+    url = f"{PROD_URL}/chat?session_id={session_id}"
+    if model:
+        url += f"&model={model}"
+    
+    response = requests.post(url, headers=headers, json=json_data)
     if response.status_code == 200:
         return response.json()  # {"answer": "..."}
     else:
@@ -30,7 +42,8 @@ def create_new_session(session_number):
         "session_id": None,  # Will be set when PDF is uploaded
         "chat_history": [],
         "display_name": f"Chat {session_number}",
-        "has_document": False
+        "has_document": False,
+        "selected_model": "meta/Llama-4-Scout-17B-16E-Instruct"  # Default model
     }
 
 def show_welcome_page():
@@ -84,6 +97,11 @@ def show_main_app():
         st.session_state.active_session = "default"
     if "session_counter" not in st.session_state:
         st.session_state.session_counter = 1
+    
+    # Ensure existing sessions have the model field
+    for session_key, session_data in st.session_state.sessions.items():
+        if "selected_model" not in session_data:
+            session_data["selected_model"] = "meta/Llama-4-Scout-17B-16E-Instruct"
 
     # Create tabs for sessions
     session_keys = list(st.session_state.sessions.keys())
@@ -121,7 +139,8 @@ def display_session_content(session_key):
 
         if st.button("Procesar", key=f"process_{session_key}") and uploaded_file:
             with st.spinner("Procesando..."):
-                result = upload_pdf([uploaded_file])
+                selected_model = current_session.get("selected_model", "meta/Llama-4-Scout-17B-16E-Instruct")
+                result = upload_pdf([uploaded_file], selected_model)
                 if result:
                     current_session["session_id"] = result.get("session_id")
                     summary = result.get("summary")
@@ -142,7 +161,39 @@ def display_session_content(session_key):
                 st.rerun()
 
     with col2:
-        st.header("💬 Chat con el documento")
+        # Header and model selector
+        col_header, col_model = st.columns([2, 1])
+        
+        with col_header:
+            st.header("💬 Chat con el documento")
+        
+        with col_model:
+            # Model selection dropdown
+            model_options = {
+                "LLama-4": "meta/Llama-4-Scout-17B-16E-Instruct",
+                "Grok-3": "xai/grok-3",
+                "DeepSeek": "deepseek/DeepSeek-R1-0528",
+                "GPT-4.1": "openai/gpt-4.1"
+            }
+            
+            # Find current selection
+            current_model_key = "LLama-4"  # Default
+            for key, value in model_options.items():
+                if value == current_session.get("selected_model", "meta/Llama-4-Scout-17B-16E-Instruct"):
+                    current_model_key = key
+                    break
+            
+            selected_model_key = st.selectbox(
+                "Modelo Elegido:",
+                options=list(model_options.keys()),
+                index=list(model_options.keys()).index(current_model_key),
+                key=f"model_selector_{session_key}"
+            )
+            
+            # Update session model if changed
+            selected_model_value = model_options[selected_model_key]
+            if current_session.get("selected_model") != selected_model_value:
+                current_session["selected_model"] = selected_model_value
         
         # Display chat history
         chat_container = st.container()
@@ -178,13 +229,13 @@ def display_session_content(session_key):
                 with button_col:
                     # Add empty space to align with the text input
                     st.markdown("")  # Empty line to match the label height
-                    st.markdown("") 
                     ask_button = st.form_submit_button("Preguntar", use_container_width=True)
                 
                 # Handle question submission (both button and Enter key)
                 if ask_button and question.strip():
                     with st.spinner("Obteniendo respuesta..."):
-                        response = ask_question(current_session["session_id"], question)
+                        selected_model = current_session.get("selected_model", "meta/Llama-4-Scout-17B-16E-Instruct")
+                        response = ask_question(current_session["session_id"], question, selected_model)
                         if response and "answer" in response:
                             current_session["chat_history"].append(("Tú", question))
                             current_session["chat_history"].append(("SciBot", response["answer"]))
