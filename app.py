@@ -48,7 +48,7 @@ def create_new_session(session_number):
 
 def show_welcome_page():
     """Display the welcome page with project information"""
-    st.set_page_config(page_title="Sci Bot - Generación Automática de Resúmenes Científicos", page_icon="📊", layout="wide")
+    st.set_page_config(page_title="Sci Bot - Generación Automática de Resúmenes Científicos", page_icon="./favicon.png", layout="wide")
     
     # Center the content
     col1, col2, col3 = st.columns([1, 2, 1])
@@ -88,7 +88,7 @@ def main():
 
 def show_main_app():
     """Display the main PDF chat application"""
-    st.set_page_config(page_title="Sci Bot - Chat con PDF", page_icon="📄", layout="wide")
+    st.set_page_config(page_title="Sci Bot - Chat con PDF", page_icon="./favicon.png", layout="wide")
 
     # Initialize session state for main app
     if "sessions" not in st.session_state:
