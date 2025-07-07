@@ -8,7 +8,7 @@ def upload_pdf(files, model=None):
     file = files[0]
     files_payload = {"pdf": (file.name, file, "application/pdf")}
     
-    # Construct URL with model parameter
+    # URL con el parametro model
     url = f"{PROD_URL}/load"
     if model:
         url += f"?model={model}"
@@ -17,14 +17,50 @@ def upload_pdf(files, model=None):
     if response.status_code == 200:
         return response.json()  # {"session_id": ..., "summary": ...}
     else:
-        st.error(f"Upload error: {response.text}")
+        # valdiar respuesta con error
+        error_message = parse_error_message(response.text, response.status_code)
+        st.error(error_message)
         return None
+
+def parse_error_message(error_text, status_code):
+    """Parse and simplify error messages for better user understanding"""
+    try:
+        import json
+        error_data = json.loads(error_text)
+        error_msg = error_data.get("error", "")
+        
+        # errores especificos
+        if "Request body too large" in error_msg:
+                return "⚠️ El documento es demasiado grande para este modelo. Intenta con un PDF más pequeño o selecciona otro modelo"
+        
+        elif "quota" in error_msg.lower() or "limit" in error_msg.lower():
+            return "⚠️ Se ha alcanzado el límite de uso del modelo. Intenta más tarde o selecciona otro modelo."
+        
+        elif "authentication" in error_msg.lower() or "unauthorized" in error_msg.lower():
+            return "⚠️ Error de autenticación. Verifica la configuración del servicio."
+        
+        elif "not found" in error_msg.lower():
+            return "⚠️ El modelo seleccionado no está disponible. Intenta con otro modelo."
+        
+        else:
+            return f"⚠️ Error del servidor: {error_msg}"
+    
+    except:
+        # errores con codigos
+        if status_code == 400:
+            return "⚠️ Error en la solicitud. Verifica el documento o intenta con otro modelo."
+        elif status_code == 429:
+            return "⚠️ Demasiadas solicitudes. Espera un momento antes de intentar nuevamente."
+        elif status_code == 500:
+            return "⚠️ Error interno del servidor. Intenta nuevamente en unos minutos o prueba con otro modelo."
+        else:
+            return f"⚠️ Error del servicio (código {status_code}). Intenta nuevamente."
 
 def ask_question(session_id, question, model=None):
     headers = {"Content-Type": "application/json"}
     json_data = {"message": question}
     
-    # Construct URL with session_id and model parameters
+    #URL con session_id y model parameters
     url = f"{PROD_URL}/chat?session_id={session_id}"
     if model:
         url += f"&model={model}"
@@ -33,13 +69,15 @@ def ask_question(session_id, question, model=None):
     if response.status_code == 200:
         return response.json()  # {"answer": "..."}
     else:
-        st.error(f"Chat error: {response.text}")
+        # simplificar mensasje de error
+        error_message = parse_error_message(response.text, response.status_code)
+        st.error(error_message)
         return None
 
 def create_new_session(session_number):
     """Create a new session with a numbered display name"""
     return {
-        "session_id": None,  # Will be set when PDF is uploaded
+        "session_id": None,  # cuando se cargue el PDF se toma el SessionID
         "chat_history": [],
         "display_name": f"Chat {session_number}",
         "has_document": False,
@@ -48,9 +86,9 @@ def create_new_session(session_number):
 
 def show_welcome_page():
     """Display the welcome page with project information"""
-    st.set_page_config(page_title="Sci Bot - Generación Automática de Resúmenes Científicos", page_icon="./favicon.png", layout="wide")
+    st.set_page_config(page_title="Sci Bot - Chat con PDF", page_icon="./favicon.png", layout="wide")
     
-    # Center the content
+    # Pantalla Inicio
     col1, col2, col3 = st.columns([1, 2, 1])
     
     with col2:
@@ -68,7 +106,7 @@ def show_welcome_page():
         
         st.markdown("---")
         
-        # Center the button
+        # Boton Inicio
         col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 1])
         with col_btn2:
             if st.button("Iniciar Programa", type="primary", use_container_width=True):
@@ -76,7 +114,7 @@ def show_welcome_page():
                 st.rerun()
 
 def main():
-    # Initialize session state
+    # Iniciar sesion de inicio
     if "show_main_app" not in st.session_state:
         st.session_state.show_main_app = False
     
@@ -90,7 +128,7 @@ def show_main_app():
     """Display the main PDF chat application"""
     st.set_page_config(page_title="Sci Bot - Chat con PDF", page_icon="./favicon.png", layout="wide")
 
-    # Initialize session state for main app
+
     if "sessions" not in st.session_state:
         st.session_state.sessions = {"default": create_new_session(1)}
     if "active_session" not in st.session_state:
@@ -98,19 +136,19 @@ def show_main_app():
     if "session_counter" not in st.session_state:
         st.session_state.session_counter = 1
     
-    # Ensure existing sessions have the model field
+    # validar modelo predefinido
     for session_key, session_data in st.session_state.sessions.items():
         if "selected_model" not in session_data:
             session_data["selected_model"] = "meta/Llama-4-Scout-17B-16E-Instruct"
 
-    # Create tabs for sessions
+    # Crear sesiones
     session_keys = list(st.session_state.sessions.keys())
     tab_labels = [st.session_state.sessions[key]["display_name"] for key in session_keys]
     tab_labels.append("+ Nuevo Chat")
     
     tabs = st.tabs(tab_labels)
     
-    # Handle new chat creation button
+    # Boton de nueva sesion o chat
     if len(tabs) > len(session_keys):
         with tabs[-1]:  # Last tab is "Nuevo Chat"
             if st.button("Crear Nuevo Chat", key="new_chat_btn"):
@@ -121,7 +159,7 @@ def show_main_app():
                 st.rerun()
             st.info("Haz clic en 'Crear Nuevo Chat' para iniciar una nueva sesión.")
     
-    # Display content for existing session tabs
+    # Mostrar contenido de cada sesion
     for i, session_key in enumerate(session_keys):
         with tabs[i]:
             st.session_state.active_session = session_key
@@ -150,7 +188,7 @@ def display_session_content(session_key):
                     st.success("¡Documento procesado!")
                     st.rerun()
         
-        # Delete chat button - only show if this is not the last remaining session and not the first session
+        # Borrar Chats- Mantiene 1 chat siempre
         if len(st.session_state.sessions) > 1 and session_key != "default":
             if st.button("🗑️ Eliminar Chat", key=f"delete_{session_key}", type="secondary"):
                 # Remove the session
@@ -161,14 +199,14 @@ def display_session_content(session_key):
                 st.rerun()
 
     with col2:
-        # Header and model selector
+        # encabezado y selector de modelo
         col_header, col_model = st.columns([2, 1])
         
         with col_header:
             st.header("💬 Chat con el documento")
         
         with col_model:
-            # Model selection dropdown
+            # Menu de Modelos
             model_options = {
                 "LLama-4": "meta/Llama-4-Scout-17B-16E-Instruct",
                 "Grok-3": "xai/grok-3",
@@ -176,7 +214,7 @@ def display_session_content(session_key):
                 "GPT-4.1": "openai/gpt-4.1"
             }
             
-            # Find current selection
+            # Seleccion de modelo
             current_model_key = "LLama-4"  # Default
             for key, value in model_options.items():
                 if value == current_session.get("selected_model", "meta/Llama-4-Scout-17B-16E-Instruct"):
@@ -190,12 +228,12 @@ def display_session_content(session_key):
                 key=f"model_selector_{session_key}"
             )
             
-            # Update session model if changed
+            # Cambiar de modelo segun la seleccion
             selected_model_value = model_options[selected_model_key]
             if current_session.get("selected_model") != selected_model_value:
                 current_session["selected_model"] = selected_model_value
         
-        # Display chat history
+        # Mostrar Chat
         chat_container = st.container()
         with chat_container:
             if current_session["chat_history"]:
@@ -209,13 +247,11 @@ def display_session_content(session_key):
             else:
                 st.info("¡Documento cargado! Puedes hacer preguntas sobre él.")
 
-        # Question input at the bottom
+        # Caja de pregunta
         if current_session["session_id"]:
-            st.markdown("---")  # Separator line
+            st.markdown("---")  
             
-            # Use form to handle Enter key submission
             with st.form(key=f"question_form_{session_key}", clear_on_submit=True):
-                # Create columns for question input and button with proper alignment
                 input_col, button_col = st.columns([5, 1])
                 
                 with input_col:
@@ -227,11 +263,9 @@ def display_session_content(session_key):
                     )
                 
                 with button_col:
-                    # Add empty space to align with the text input
-                    st.markdown("")  # Empty line to match the label height
+                    st.markdown("")  
                     ask_button = st.form_submit_button("Preguntar", use_container_width=True)
                 
-                # Handle question submission (both button and Enter key)
                 if ask_button and question.strip():
                     with st.spinner("Obteniendo respuesta..."):
                         selected_model = current_session.get("selected_model", "meta/Llama-4-Scout-17B-16E-Instruct")
