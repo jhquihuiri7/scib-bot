@@ -3,6 +3,7 @@ import requests
 import uuid
 
 PROD_URL = "https://scibot-backend.uc.r.appspot.com"
+#PROD_URL = "http://127.0.0.1:8000"
 
 def upload_pdf(files, model=None):
     file = files[0]
@@ -81,7 +82,7 @@ def create_new_session(session_number):
         "chat_history": [],
         "display_name": f"Chat {session_number}",
         "has_document": False,
-        "selected_model": "meta/Llama-4-Scout-17B-16E-Instruct"  # Default model
+        "selected_model": "deepseek/deepseek-r1-0528:free"  # Default model
     }
 
 def show_welcome_page():
@@ -139,7 +140,7 @@ def show_main_app():
     # validar modelo predefinido
     for session_key, session_data in st.session_state.sessions.items():
         if "selected_model" not in session_data:
-            session_data["selected_model"] = "meta/Llama-4-Scout-17B-16E-Instruct"
+            session_data["selected_model"] = "deepseek/deepseek-r1-0528:free"
 
     # Crear sesiones
     session_keys = list(st.session_state.sessions.keys())
@@ -177,7 +178,7 @@ def display_session_content(session_key):
 
         if st.button("Procesar", key=f"process_{session_key}") and uploaded_file:
             with st.spinner("Procesando..."):
-                selected_model = current_session.get("selected_model", "meta/Llama-4-Scout-17B-16E-Instruct")
+                selected_model = current_session.get("selected_model", "deepseek/deepseek-r1-0528:free")
                 result = upload_pdf([uploaded_file], selected_model)
                 if result:
                     current_session["session_id"] = result.get("session_id")
@@ -208,16 +209,16 @@ def display_session_content(session_key):
         with col_model:
             # Menu de Modelos
             model_options = {
-                "LLama-4": "meta/Llama-4-Scout-17B-16E-Instruct",
-                "Grok-3": "xai/grok-3",
-                "DeepSeek": "deepseek/DeepSeek-R1-0528",
-                "GPT-4.1": "openai/gpt-4.1"
+                "LLama-3.3": "meta-llama/llama-3.3-70b-instruct:free",
+                "Mistral": "mistralai/mistral-nemo:free",
+                "DeepSeek R1": "deepseek/deepseek-r1-0528:free",
+                "Qwen": "qwen/qwq-32b:free",
             }
             
             # Seleccion de modelo
-            current_model_key = "LLama-4"  # Default
+            current_model_key = "DeepSeek R1"  # Default
             for key, value in model_options.items():
-                if value == current_session.get("selected_model", "meta/Llama-4-Scout-17B-16E-Instruct"):
+                if value == current_session.get("selected_model", "deepseek/deepseek-r1-0528:free"):
                     current_model_key = key
                     break
             
@@ -268,7 +269,7 @@ def display_session_content(session_key):
                 
                 if ask_button and question.strip():
                     with st.spinner("Obteniendo respuesta..."):
-                        selected_model = current_session.get("selected_model", "meta/Llama-4-Scout-17B-16E-Instruct")
+                        selected_model = current_session.get("selected_model", "deepseek/deepseek-r1-0528:free")
                         response = ask_question(current_session["session_id"], question, selected_model)
                         if response and "answer" in response:
                             current_session["chat_history"].append(("Tú", question))
