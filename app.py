@@ -7,34 +7,55 @@ PROD_URL = "https://6ed753424eda.ngrok-free.app"
 #PROD_URL = "http://127.0.0.1:8000"
 
 def upload_pdf(files, model=None):
+    """
+    Sube un archivo PDF al servidor backend para su procesamiento.
+
+    Args:
+        files (list): Una lista de archivos subidos (se espera que contenga un archivo PDF).
+        model (str, optional): El nombre del modelo a utilizar para el procesamiento. Por defecto es None.
+
+    Returns:
+        dict or None: Un diccionario que contiene el session_id y el resumen si tiene éxito, de lo contrario None.
+    """
     file = files[0]
     files_payload = {"pdf": (file.name, file, "application/pdf")}
     
-    # URL con el parametro model
+    # Construye la URL con el parámetro del modelo si se proporciona
     url = f"{PROD_URL}/load"
     if model:
         url += f"?model={model}"
 
     print(model)    
+    # Envía la solicitud POST al backend
     response = requests.post(url, files=files_payload)
 
     print(response.text)
+    # Maneja la respuesta
     if response.status_code == 200:
         return response.json()
     else:
-        # valdiar respuesta con error
+        # Analiza y muestra el mensaje de error
         error_message = parse_error_message(response.text, response.status_code)
         st.error(error_message)
         return None
 
 def parse_error_message(error_text, status_code):
-    """Parse and simplify error messages for better user understanding"""
+    """
+    Analiza y simplifica los mensajes de error para una mejor comprensión del usuario.
+
+    Args:
+        error_text (str): El texto del mensaje de error de la respuesta HTTP.
+        status_code (int): El código de estado HTTP.
+
+    Returns:
+        str: Un mensaje de error fácil de usar.
+    """
     try:
         import json
         error_data = json.loads(error_text)
         error_msg = error_data.get("error", "")
         
-        # errores especificos
+        # Maneja mensajes de error específicos
         if "Request body too large" in error_msg:
                 return "⚠️ El documento es demasiado grande para este modelo. Intenta con un PDF más pequeño o selecciona otro modelo"
         
@@ -51,7 +72,7 @@ def parse_error_message(error_text, status_code):
             return f"⚠️ Error del servidor: {error_msg}"
     
     except:
-        # errores con codigos
+        # Maneja errores basados en códigos de estado
         if status_code == 400:
             return "⚠️ Error en la solicitud. Verifica el documento o intenta con otro modelo."
         elif status_code == 429:
@@ -62,38 +83,63 @@ def parse_error_message(error_text, status_code):
             return f"⚠️ Error del servicio (código {status_code}). Intenta nuevamente."
 
 def ask_question(session_id, question, model=None):
+    """
+    Envía una pregunta al backend y obtiene una respuesta.
+
+    Args:
+        session_id (str): El ID de la sesión actual.
+        question (str): La pregunta del usuario.
+        model (str, optional): El modelo a utilizar para la respuesta. Por defecto es None.
+
+    Returns:
+        dict or None: Un diccionario que contiene la respuesta si tiene éxito, de lo contrario None.
+    """
     headers = {"Content-Type": "application/json"}
     json_data = {"message": question}
     
-    #URL con session_id y model parameters
+    # Construye la URL con los parámetros session_id y model
     url = f"{PROD_URL}/chat?session_id={session_id}"
     if model:
         url += f"&model={model}"
     
+    # Envía la solicitud POST
     response = requests.post(url, headers=headers, json=json_data)
+
+    # Maneja la respuesta
     if response.status_code == 200:
         return response.json()  # {"answer": "..."}
     else:
-        # simplificar mensasje de error
+        # Analiza y muestra el mensaje de error
         error_message = parse_error_message(response.text, response.status_code)
         st.error(error_message)
         return None
 
 def create_new_session(session_number):
-    """Create a new session with a numbered display name"""
+    """
+    Crea una nueva sesión con un nombre de visualización numerado.
+
+    Args:
+        session_number (int): El número a mostrar para la nueva sesión.
+
+    Returns:
+        dict: Un diccionario que representa una nueva sesión.
+    """
     return {
-        "session_id": None,  # cuando se cargue el PDF se toma el SessionID
+        "session_id": None,  # El session_id se asigna después de que se carga un PDF
         "chat_history": [],
         "display_name": f"Chat {session_number}",
         "has_document": False,
-        "selected_model": "moonshotai/kimi-vl-a3b-thinking:free"  # Default model
+        "selected_model": "moonshotai/kimi-vl-a3b-thinking:free"  # Modelo por defecto
     }
 
 def show_welcome_page():
-    """Display the welcome page with project information"""
+    """
+    Muestra la página de bienvenida con información del proyecto.
+    Esta es la primera pantalla que ve el usuario.
+    """
     st.set_page_config(page_title="Sci Bot - Chat con PDF", page_icon="./favicon.png", layout="wide")
     
-    # Pantalla Inicio
+    # Diseño de la pantalla de bienvenida
     col1, col2, col3 = st.columns([1, 2, 1])
     
     with col2:
@@ -111,7 +157,7 @@ def show_welcome_page():
         
         st.markdown("---")
         
-        # Boton Inicio
+        # Botón de inicio
         col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 1])
         with col_btn2:
             if st.button("Iniciar Programa", type="primary", use_container_width=True):
@@ -119,21 +165,28 @@ def show_welcome_page():
                 st.rerun()
 
 def main():
-    # Iniciar sesion de inicio
+    """
+    Función principal para ejecutar la aplicación Streamlit.
+    Maneja el estado inicial y cambia entre la página de bienvenida y la aplicación principal.
+    """
+    # Inicializa el estado de la sesión para la aplicación principal
     if "show_main_app" not in st.session_state:
         st.session_state.show_main_app = False
     
-    # Show welcome page or main app
+    # Muestra la página de bienvenida o la aplicación principal según el estado
     if not st.session_state.show_main_app:
         show_welcome_page()
     else:
         show_main_app()
 
 def show_main_app():
-    """Display the main PDF chat application"""
+    """
+    Muestra la interfaz principal de la aplicación de chat con PDF.
+    Esto incluye la gestión de sesiones, pestañas para diferentes chats y el diseño principal.
+    """
     st.set_page_config(page_title="Sci Bot - Chat con PDF", page_icon="./favicon.png", layout="wide")
 
-
+    # Inicializa el estado de la sesión para las sesiones de chat
     if "sessions" not in st.session_state:
         st.session_state.sessions = {"default": create_new_session(1)}
     if "active_session" not in st.session_state:
@@ -141,21 +194,21 @@ def show_main_app():
     if "session_counter" not in st.session_state:
         st.session_state.session_counter = 1
     
-    # validar modelo predefinido
+    # Se asegura de que todas las sesiones tengan un modelo predeterminado seleccionado
     for session_key, session_data in st.session_state.sessions.items():
         if "selected_model" not in session_data:
             session_data["selected_model"] = "moonshotai/kimi-vl-a3b-thinking:free"
 
-    # Crear sesiones
+    # Crea pestañas para cada sesión
     session_keys = list(st.session_state.sessions.keys())
     tab_labels = [st.session_state.sessions[key]["display_name"] for key in session_keys]
     tab_labels.append("+ Nuevo Chat")
     
     tabs = st.tabs(tab_labels)
     
-    # Boton de nueva sesion o chat
+    # Maneja el botón "Nuevo Chat" en la última pestaña
     if len(tabs) > len(session_keys):
-        with tabs[-1]:  # Last tab is "Nuevo Chat"
+        with tabs[-1]:  # La última pestaña es "Nuevo Chat"
             if st.button("Crear Nuevo Chat", key="new_chat_btn"):
                 st.session_state.session_counter += 1
                 new_session_key = f"session_{st.session_state.session_counter}"
@@ -164,14 +217,20 @@ def show_main_app():
                 st.rerun()
             st.info("Haz clic en 'Crear Nuevo Chat' para iniciar una nueva sesión.")
     
-    # Mostrar contenido de cada sesion
+    # Muestra el contenido de cada sesión en su pestaña
     for i, session_key in enumerate(session_keys):
         with tabs[i]:
             st.session_state.active_session = session_key
             display_session_content(session_key)
 
 def display_session_content(session_key):
-    """Display the content for a specific session"""
+    """
+    Muestra el contenido de una sesión de chat específica.
+    Esto incluye el cargador de archivos, el historial de chat y el formulario de entrada de preguntas.
+
+    Args:
+        session_key (str): La clave de la sesión a mostrar.
+    """
     current_session = st.session_state.sessions[session_key]
     
     col1, col2 = st.columns([1, 2])
@@ -187,31 +246,31 @@ def display_session_content(session_key):
                 if result:
                     current_session["session_id"] = result.get("session_id")
                     summary = result.get("summary")
-                    current_session["chat_history"] = []  # Reiniciar chat
-                    current_session["chat_history"].append(("SciBot", summary))  # Mostrar resumen en el chat
+                    current_session["chat_history"] = []  # Restablecer el historial de chat
+                    current_session["chat_history"].append(("SciBot", summary))  # Muestra el resumen en el chat
                     current_session["has_document"] = True
                     st.success("¡Documento procesado!")
                     st.rerun()
         
-        # Borrar Chats- Mantiene 1 chat siempre
+        # Botón para eliminar el chat (mantiene al menos una sesión de chat)
         if len(st.session_state.sessions) > 1 and session_key != "default":
             if st.button("🗑️ Eliminar Chat", key=f"delete_{session_key}", type="secondary"):
-                # Remove the session
+                # Elimina la sesión
                 del st.session_state.sessions[session_key]
-                # Switch to the first available session
+                # Cambia a la primera sesión disponible
                 remaining_sessions = list(st.session_state.sessions.keys())
                 st.session_state.active_session = remaining_sessions[0]
                 st.rerun()
 
     with col2:
-        # encabezado y selector de modelo
+        # Encabezado y selector de modelo
         col_header, col_model = st.columns([2, 1])
         
         with col_header:
             st.header("💬 Chat con el documento")
         
         with col_model:
-            # Menu de Modelos
+            # Menú desplegable de selección de modelo
             model_options = {
                 "LLama-3.3": "meta-llama/llama-3.3-70b-instruct:free",
                 "Mistral": "mistralai/mistral-nemo:free",
@@ -219,8 +278,8 @@ def display_session_content(session_key):
                 "MT5 Small": "mt5-small",
             }
             
-            # Seleccion de modelo
-            current_model_key = "Kimi VL"  # Default
+            # Obtiene la selección de modelo actual
+            current_model_key = "Kimi VL"  # Por defecto
             for key, value in model_options.items():
                 if value == current_session.get("selected_model", "moonshotai/kimi-vl-a3b-thinking:free"):
                     current_model_key = key
@@ -233,12 +292,12 @@ def display_session_content(session_key):
                 key=f"model_selector_{session_key}"
             )
             
-            # Cambiar de modelo segun la seleccion
+            # Actualiza el modelo si la selección cambia
             selected_model_value = model_options[selected_model_key]
             if current_session.get("selected_model") != selected_model_value:
                 current_session["selected_model"] = selected_model_value
         
-        # Mostrar Chat
+        # Muestra el historial de chat
         chat_container = st.container()
         with chat_container:
             if current_session["chat_history"]:
@@ -252,7 +311,7 @@ def display_session_content(session_key):
             else:
                 st.info("¡Documento cargado! Puedes hacer preguntas sobre él.")
 
-        # Caja de pregunta
+        # Formulario de entrada de pregunta
         if current_session["session_id"]:
             st.markdown("---")  
             
