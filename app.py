@@ -13,8 +13,11 @@ def upload_pdf(files, model=None):
     url = f"{PROD_URL}/load"
     if model:
         url += f"?model={model}"
-    
+
+    print(model)    
     response = requests.post(url, files=files_payload)
+
+    print(response.text)
     if response.status_code == 200:
         return response.json()  # {"session_id": ..., "summary": ...}
     else:
@@ -82,7 +85,7 @@ def create_new_session(session_number):
         "chat_history": [],
         "display_name": f"Chat {session_number}",
         "has_document": False,
-        "selected_model": "deepseek/deepseek-r1-0528:free"  # Default model
+        "selected_model": "moonshotai/kimi-vl-a3b-thinking:free"  # Default model
     }
 
 def show_welcome_page():
@@ -140,7 +143,7 @@ def show_main_app():
     # validar modelo predefinido
     for session_key, session_data in st.session_state.sessions.items():
         if "selected_model" not in session_data:
-            session_data["selected_model"] = "deepseek/deepseek-r1-0528:free"
+            session_data["selected_model"] = "moonshotai/kimi-vl-a3b-thinking:free"
 
     # Crear sesiones
     session_keys = list(st.session_state.sessions.keys())
@@ -178,7 +181,7 @@ def display_session_content(session_key):
 
         if st.button("Procesar", key=f"process_{session_key}") and uploaded_file:
             with st.spinner("Procesando..."):
-                selected_model = current_session.get("selected_model", "deepseek/deepseek-r1-0528:free")
+                selected_model = current_session.get("selected_model", "moonshotai/kimi-vl-a3b-thinking:free")
                 result = upload_pdf([uploaded_file], selected_model)
                 if result:
                     current_session["session_id"] = result.get("session_id")
@@ -211,14 +214,14 @@ def display_session_content(session_key):
             model_options = {
                 "LLama-3.3": "meta-llama/llama-3.3-70b-instruct:free",
                 "Mistral": "mistralai/mistral-nemo:free",
-                "DeepSeek R1": "deepseek/deepseek-r1-0528:free",
-                "Qwen": "qwen/qwq-32b:free",
+                "Kimi VL": "moonshotai/kimi-vl-a3b-thinking:free",
+                "MT5 Small": "mt5-small",
             }
             
             # Seleccion de modelo
-            current_model_key = "DeepSeek R1"  # Default
+            current_model_key = "Kimi VL"  # Default
             for key, value in model_options.items():
-                if value == current_session.get("selected_model", "deepseek/deepseek-r1-0528:free"):
+                if value == current_session.get("selected_model", "moonshotai/kimi-vl-a3b-thinking:free"):
                     current_model_key = key
                     break
             
@@ -269,7 +272,7 @@ def display_session_content(session_key):
                 
                 if ask_button and question.strip():
                     with st.spinner("Obteniendo respuesta..."):
-                        selected_model = current_session.get("selected_model", "deepseek/deepseek-r1-0528:free")
+                        selected_model = current_session.get("selected_model", "moonshotai/kimi-vl-a3b-thinking:free")
                         response = ask_question(current_session["session_id"], question, selected_model)
                         if response and "answer" in response:
                             current_session["chat_history"].append(("Tú", question))
