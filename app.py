@@ -20,7 +20,7 @@ def upload_pdf(files, model=None):
 
     print(response.text)
     if response.status_code == 200:
-        return response.json()  # {"session_id": ..., "summary": ...}
+        return response.json()
     else:
         # valdiar respuesta con error
         error_message = parse_error_message(response.text, response.status_code)
