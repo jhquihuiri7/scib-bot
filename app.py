@@ -2,7 +2,7 @@ import streamlit as st
 import requests
 import uuid
 
-PROD_URL = " https://e1c233e479ba.ngrok-free.app"
+PROD_URL = " https://601188cd8442.ngrok-free.app"
 #PROD_URL = "https://scibot-backend.uc.r.appspot.com"
 #PROD_URL = "http://127.0.0.1:8000"
 
